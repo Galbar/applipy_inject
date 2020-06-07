@@ -195,7 +195,9 @@ class Injector:
                 try:
                     instance = item.provider.callable_(**dependencies)
                 except TypeError:
-                    raise Exception(f'Error when calling provider `{item.provider.callable_}` for type `{type_}` with name `{name}`')
+                    raise Exception(
+                        f'Error when calling provider `{item.provider.callable_}` for type `{type_}` with name `{name}`'
+                    )
 
             if is_singleton:
                 instanced_item = InstancedItem(item.name, item.type_, item.provider, is_singleton, instance)
