@@ -100,10 +100,10 @@ class Injector:
             else:
                 raise TypeError('Cannot bind {}. Please be more explicit'.format(type_))
         elif self._is_provider(provider_or_instance, type_):
-                self.bind_provider(type_,
-                                   provider_or_instance,
-                                   name=name,
-                                   singleton=singleton)
+            self.bind_provider(type_,
+                               provider_or_instance,
+                               name=name,
+                               singleton=singleton)
         else:
             self.bind_instance(type_, provider_or_instance, name=name)
 
