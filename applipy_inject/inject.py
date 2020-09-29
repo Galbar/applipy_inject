@@ -77,8 +77,12 @@ class Injector:
     def __init__(self):
         self.providers = defaultdict(set)
 
+    def _dependency_is_collection(self, dep_type) -> bool:
+        origin = getattr(dep_type, '__origin__', None)
+        return origin is not None and (origin is list or origin is List)
+
     def _get_dependency_type(self, type_):
-        if issubclass(type_, List):
+        if self._dependency_is_collection(type_):
             return type_.__args__[0]
         else:
             return type_
@@ -95,30 +99,31 @@ class Injector:
                 self.bind_provider(type_.__annotations__.get('return'), type_, name=name, singleton=singleton)
             else:
                 raise TypeError('Cannot bind {}. Please be more explicit'.format(type_))
-        else:
-            is_provider = (
-                (
-                    isinstance(provider_or_instance, type)
-                    and
-                    issubclass(provider_or_instance, type_)
-                )
-                or
-                (
-                    callable(provider_or_instance)
-                    and
-                    issubclass(
-                        provider_or_instance.__annotations__.get('return'),
-                        type_
-                    )
-                )
-            )
-            if is_provider:
+        elif self._is_provider(provider_or_instance, type_):
                 self.bind_provider(type_,
                                    provider_or_instance,
                                    name=name,
                                    singleton=singleton)
-            else:
-                self.bind_instance(type_, provider_or_instance, name=name)
+        else:
+            self.bind_instance(type_, provider_or_instance, name=name)
+
+    def _is_provider(self, provider_or_instance, type_) -> bool:
+        return (
+            (
+                isinstance(provider_or_instance, type)
+                and
+                issubclass(provider_or_instance, type_)
+            )
+            or
+            (
+                callable(provider_or_instance)
+                and
+                issubclass(
+                    provider_or_instance.__annotations__.get('return'),
+                    type_
+                )
+            )
+        )
 
     def bind_provider(self, type_, provider, name=None, singleton=True):
         if isinstance(provider, type):
@@ -144,7 +149,7 @@ class Injector:
         dependencies = {Dependency(named_deps[varname],
                                    self._get_dependency_type(type_),
                                    varname,
-                                   issubclass(type_, List))
+                                   self._dependency_is_collection(type_))
                         for varname, type_ in annotations.items()}
 
         item = Item(name, type_, Provider(provider, dependencies), singleton)

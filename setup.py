@@ -21,7 +21,7 @@ setup(
     version=version,
     packages=find_packages(exclude=['doc', 'tests']),
     data_files=[],
-    python_requires='~=3.6',
+    python_requires='>=3.6',
     install_requires=[],
     scripts=[],
 )
