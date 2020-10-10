@@ -2,18 +2,6 @@ from typing import List
 from collections import defaultdict
 
 
-def named(names):
-    def construct_wrapper(func):
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        wrapper._named_deps = names
-        wrapper.__annotations__ = func.__annotations__
-        return wrapper
-
-    return construct_wrapper
-
-
 def with_names(provider, names):
 
     def wrapper(*args, **kwargs):
@@ -32,6 +20,13 @@ def with_names(provider, names):
     wrapper._named_deps = names
     wrapper.__annotations__ = annotations
     return wrapper
+
+
+def named(names):
+    def construct_wrapper(func):
+        return with_names(func, names)
+
+    return construct_wrapper
 
 
 class Dependency:
