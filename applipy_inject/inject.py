@@ -158,7 +158,7 @@ class Injector:
         item = InstancedItem(name, type_, Provider(lambda: instance, {}), True, instance)
         self.providers[name, type_].add(item)
 
-    def get_all(self, type_, name=None, filter_by_providers=None, _requested=None, _max=None):
+    def get_all(self, type_, name=None, _requested=None, _max=None):
         requested = _requested or set()
         request_key = (name, type_)
         if request_key in requested:
@@ -174,9 +174,6 @@ class Injector:
         items_instantiated = []
 
         for item in items:
-            if filter_by_providers is not None and item.provider.callable_ not in filter_by_providers:
-                continue
-
             is_singleton = item.is_singleton
 
             if is_singleton and isinstance(item, InstancedItem):

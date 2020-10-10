@@ -1,4 +1,8 @@
-__all__ = ['named', 'with_names', 'Injector']
+__all__ = [
+    'Injector',
+    'named',
+    'with_names',
+]
 
 
 from applipy_inject.version import __version__  # noqa
