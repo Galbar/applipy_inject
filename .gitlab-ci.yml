@@ -1,23 +1,17 @@
 stages:
-  - lint
-  - test
+  - check
   - test-all
   - publish
 
 variables:
     REGISTRY_PROJECT_ID: "21689940"
 
-flake8:
-  stage: lint
+check:
+  stage: check
   image: python:3.6
   script:
     - pip install flake8
     - flake8
-
-tests-3.6:
-  stage: test
-  image: python:3.6
-  script:
     - pip install pytest pytest-cov
     - pytest --cov=applipy_inject --cov-report=term-missing
 
@@ -42,6 +36,22 @@ publish-gitlab:
     TWINE_USERNAME: gitlab-ci-token
     TWINE_PASSWORD: "${CI_JOB_TOKEN}"
     TWINE_REPOSITORY_URL: "https://gitlab.com/api/v4/projects/${REGISTRY_PROJECT_ID}/packages/pypi"
+  script:
+    - pip install twine
+    - python setup.py sdist bdist_wheel
+    - twine upload dist/*
+  only:
+    refs:
+      - master
+    changes:
+      - applipy_inject/version.py
+
+publish-pipy:
+  stage: publish
+  image: python:latest
+  variables:
+    TWINE_USERNAME: __token__
+    TWINE_PASSWORD: "${PYPI_TOKEN}"
   script:
     - pip install twine
     - python setup.py sdist bdist_wheel
