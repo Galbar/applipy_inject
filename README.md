@@ -1,5 +1,7 @@
 # Applipy Inject
 
+    pip install applipy_inject
+
 Library that provides a dependency injector that works with type hinting.
 
 ## Basic usage
