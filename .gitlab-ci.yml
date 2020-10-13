@@ -46,7 +46,7 @@ publish-gitlab:
     changes:
       - applipy_inject/version.py
 
-publish-pipy:
+publish-pypi:
   stage: publish
   image: python:latest
   variables:
