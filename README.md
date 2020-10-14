@@ -1,3 +1,11 @@
+[![pipeline status](https://gitlab.com/applipy/applipy_inject/badges/master/pipeline.svg)](https://gitlab.com/applipy/applipy_inject/-/pipelines?scope=branches&ref=master)
+[![coverage report](https://gitlab.com/applipy/applipy_inject/badges/master/coverage.svg)](https://gitlab.com/applipy/applipy_inject/-/graphs/master/charts)
+[![PyPI Status](https://img.shields.io/pypi/status/applipy-inject.svg)](https://pypi.org/project/applipy-inject/)
+[![PyPI Version](https://img.shields.io/pypi/v/applipy-inject.svg)](https://pypi.org/project/applipy-inject/)
+[![PyPI Python](https://img.shields.io/pypi/pyversions/applipy-inject.svg)](https://pypi.org/project/applipy-inject/)
+[![PyPI License](https://img.shields.io/pypi/l/applipy-inject.svg)](https://pypi.org/project/applipy-inject/)
+[![PyPI Format](https://img.shields.io/pypi/format/applipy-inject.svg)](https://pypi.org/project/applipy-inject/)
+
 # Applipy Inject
 
     pip install applipy_inject
