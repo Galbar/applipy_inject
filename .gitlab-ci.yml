@@ -29,6 +29,13 @@ tests-3.8:
     - pip install pytest
     - pytest
 
+tests-3.9:
+  stage: test-all
+  image: python:3.9
+  script:
+    - pip install pytest
+    - pytest
+
 publish-gitlab:
   stage: publish
   image: python:latest

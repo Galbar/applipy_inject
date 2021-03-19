@@ -1,5 +1,9 @@
-from typing import List
 from collections import defaultdict
+from enum import Enum
+from typing import (
+    List,
+    Union,
+)
 
 
 def with_names(provider, names):
@@ -29,13 +33,19 @@ def named(names):
     return construct_wrapper
 
 
+class DependencyType(str, Enum):
+    Required = 'required'
+    Optional = 'optional'
+    Collection = 'collection'
+
+
 class Dependency:
 
-    def __init__(self, name, type_, varname, is_collection):
+    def __init__(self, name, type_, varname, dep_type):
         self.name = name
         self.type_ = type_
         self.varname = varname
-        self.is_collection = is_collection
+        self.dep_type = dep_type
 
 
 class Provider:
@@ -76,9 +86,28 @@ class Injector:
         origin = getattr(dep_type, '__origin__', None)
         return origin is not None and (origin is list or origin is List)
 
+    def _dependency_is_optional(self, dep_type) -> bool:
+        origin = getattr(dep_type, '__origin__', None)
+        if origin is not Union:
+            return False
+        args = getattr(dep_type, '__args__', ())
+        if len(args) != 2:
+            return False
+        return type(None) in args
+
     def _get_dependency_type(self, type_):
         if self._dependency_is_collection(type_):
+            return DependencyType.Collection
+        elif self._dependency_is_optional(type_):
+            return DependencyType.Optional
+        else:
+            return DependencyType.Required
+
+    def _get_dependency_class(self, type_):
+        if self._dependency_is_collection(type_):
             return type_.__args__[0]
+        elif self._dependency_is_optional(type_):
+            return next(t for t in type_.__args__ if t != type(None))
         else:
             return type_
 
@@ -140,11 +169,10 @@ class Injector:
             named_deps = defaultdict(lambda: None)
             if has_names:
                 named_deps.update(func._named_deps)
-
         dependencies = {Dependency(named_deps[varname],
-                                   self._get_dependency_type(type_),
+                                   self._get_dependency_class(type_),
                                    varname,
-                                   self._dependency_is_collection(type_))
+                                   self._get_dependency_type(type_))
                         for varname, type_ in annotations.items()}
 
         item = Item(name, type_, Provider(provider, dependencies), singleton)
@@ -181,10 +209,14 @@ class Injector:
             else:
                 dependencies = {}
                 for dependency in item.provider.dependencies:
-                    if dependency.is_collection:
+                    if dependency.dep_type == DependencyType.Collection:
                         dependencies[dependency.varname] = self.get_all(dependency.type_,
                                                                         name=dependency.name,
                                                                         _requested=requested)
+                    elif dependency.dep_type == DependencyType.Optional:
+                        dependencies[dependency.varname] = self.get_optional(dependency.type_,
+                                                                             name=dependency.name,
+                                                                             _requested=requested)
                     else:
                         dependencies[dependency.varname] = self.get(dependency.type_,
                                                                     name=dependency.name,
@@ -213,8 +245,14 @@ class Injector:
         requested.remove(request_key)
         return instances
 
+    def get_optional(self, type_, name=None, _requested=None):
+        found = self.get_all(type_, name=name, _requested=_requested, _max=1)
+        if found:
+            return found[0]
+        return None
+
     def get(self, type_, name=None, _requested=None):
-        try:
-            return self.get_all(type_, name=name, _requested=_requested, _max=1)[0]
-        except IndexError:
-            raise Exception(f'Could not get instance of type `{type_.__name__}` with name `{name}`')
+        instance = self.get_optional(type_, name=name, _requested=_requested)
+        if instance is None:
+            raise ValueError(f'Could not get instance of type `{type_.__name__}` with name `{name}`')
+        return instance

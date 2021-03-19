@@ -1,5 +1,10 @@
-from typing import List
+from typing import (
+    List,
+    Optional,
+)
+
 from applipy_inject import Injector
+
 from .common import Sub, Super
 
 
@@ -173,3 +178,27 @@ def test_collection_dependency():
     injector.bind(mysum)
 
     assert injector.get(str) == '1,2,3,4'
+
+
+def test_optional_dependency_present():
+    injector = Injector()
+
+    injector.bind(int, 1)
+
+    def mysum(maybe_int: Optional[int]) -> str:
+        return str(maybe_int)
+
+    injector.bind(mysum)
+
+    assert injector.get(str) == '1'
+
+
+def test_optional_dependency_absent():
+    injector = Injector()
+
+    def mysum(maybe_int: Optional[int]) -> str:
+        return str(maybe_int)
+
+    injector.bind(mysum)
+
+    assert injector.get(str) == 'None'
