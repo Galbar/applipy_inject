@@ -107,7 +107,7 @@ class Injector:
         if self._dependency_is_collection(type_):
             return type_.__args__[0]
         elif self._dependency_is_optional(type_):
-            return next(t for t in type_.__args__ if t != type(None))
+            return next(t for t in type_.__args__ if not isinstance(t, type(None)))
         else:
             return type_
 
