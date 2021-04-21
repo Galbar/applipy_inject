@@ -60,21 +60,24 @@ class Provider:
 
 class Item:
 
-    def __init__(self, name, type_, provider, is_singleton):
+    def __init__(self, name, provider, is_singleton, is_instanced, instance=None):
         self.name = name
-        self.type_ = type_
         self.provider = provider
         self.is_singleton = is_singleton
+        self.is_instanced = is_instanced
+        self.instance = instance
+
+    def instantiate(self, *args, **kwargs):
+        if self.is_instanced:
+            return
+        instance = self.provider.callable_(*args, **kwargs)
+        if self.is_singleton:
+            self.is_instanced = True
+            self.instance = instance
+        return instance
 
     def __repr__(self) -> str:
         return f'{self.__class__}[{self.name}, {self.provider}]'
-
-
-class InstancedItem(Item):
-
-    def __init__(self, name, type_, provider, is_singleton, instance):
-        super().__init__(name, type_, provider, is_singleton)
-        self.instance = instance
 
 
 class Injector:
@@ -134,6 +137,14 @@ class Injector:
     def _is_provider(self, provider_or_instance, type_) -> bool:
         return (
             (
+                isinstance(type_, (tuple, list))
+                and
+                all(isinstance(t, type) for t in type_)
+                and
+                all(self._is_provider(provider_or_instance, t) for t in type_)
+            )
+            or
+            (
                 isinstance(provider_or_instance, type)
                 and
                 issubclass(provider_or_instance, type_)
@@ -149,11 +160,14 @@ class Injector:
             )
         )
 
-    def bind_provider(self, type_, provider, name=None, singleton=True):
+    def bind_provider(self, types, provider, name=None, singleton=True):
         if isinstance(provider, type):
             func = provider.__init__
         else:
             func = provider
+
+        if not isinstance(types, (tuple, list)):
+            types = (types,)
 
         if hasattr(func, '__annotations__'):
             annotations = func.__annotations__.copy()
@@ -170,21 +184,26 @@ class Injector:
             if has_names:
                 named_deps.update(func._named_deps)
         dependencies = {Dependency(named_deps[varname],
-                                   self._get_dependency_class(type_),
+                                   self._get_dependency_class(t),
                                    varname,
-                                   self._get_dependency_type(type_))
-                        for varname, type_ in annotations.items()}
+                                   self._get_dependency_type(t))
+                        for varname, t in annotations.items()}
 
-        item = Item(name, type_, Provider(provider, dependencies), singleton)
+        item = Item(name, Provider(provider, dependencies), singleton, False)
 
-        self.providers[name, type_].add(item)
+        for type_ in types:
+            self.providers[name, type_].add(item)
 
     def bind_type(self, type_, name=None, singleton=True):
         self.bind_provider(type_, type_, name=name, singleton=singleton)
 
-    def bind_instance(self, type_, instance, name=None):
-        item = InstancedItem(name, type_, Provider(lambda: instance, {}), True, instance)
-        self.providers[name, type_].add(item)
+    def bind_instance(self, types, instance, name=None):
+        item = Item(name, Provider(lambda: instance, {}), True, True, instance)
+
+        if not isinstance(types, (tuple, list)):
+            types = (types,)
+        for type_ in types:
+            self.providers[name, type_].add(item)
 
     def get_all(self, type_, name=None, _requested=None, _max=None):
         requested = _requested or set()
@@ -199,12 +218,10 @@ class Injector:
 
         instances = []
 
-        items_instantiated = []
-
         for item in items:
             is_singleton = item.is_singleton
 
-            if is_singleton and isinstance(item, InstancedItem):
+            if is_singleton and item.is_instanced:
                 instance = item.instance
             else:
                 dependencies = {}
@@ -222,25 +239,17 @@ class Injector:
                                                                     name=dependency.name,
                                                                     _requested=requested)
                 try:
-                    instance = item.provider.callable_(**dependencies)
+                    instance = item.instantiate(**dependencies)
                 except TypeError:
                     raise Exception(
                         f'Error when calling provider `{item.provider.callable_}` for type `{type_}` with name `{name}`'
                     )
-
-            if is_singleton:
-                instanced_item = InstancedItem(item.name, item.type_, item.provider, is_singleton, instance)
-                items_instantiated.append((item, instanced_item))
 
             instances.append(instance)
 
             instances_left -= 1
             if instances_left == 0:
                 break
-
-        for old, new in items_instantiated:
-            items.remove(old)
-            items.add(new)
 
         requested.remove(request_key)
         return instances

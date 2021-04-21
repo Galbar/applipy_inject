@@ -202,3 +202,29 @@ def test_optional_dependency_absent():
     injector.bind(mysum)
 
     assert injector.get(str) == 'None'
+
+
+def test_bind_instance_to_multiple_types():
+    injector = Injector()
+
+    injector.bind((str, object), 'many-things')
+
+    assert injector.get(str) == 'many-things'
+    assert injector.get(object) == 'many-things'
+    assert injector.get(str) is injector.get(object)
+
+
+def test_bind_provider_to_multiple_types():
+    injector = Injector()
+
+    injector.bind((Super, Sub), Sub, singleton=True)
+    injector.bind(int, 7)
+    injector.bind(dict, {'k': 7})
+    injector.bind(str, 'c')
+
+    assert id(injector.get(Super)) == id(injector.get(Super))
+    assert injector.get(Super) == injector.get(Super)
+    assert id(injector.get(Sub)) == id(injector.get(Sub))
+    assert injector.get(Sub) == injector.get(Sub)
+    assert id(injector.get(Super)) == id(injector.get(Sub))
+    assert injector.get(Super) == injector.get(Sub)

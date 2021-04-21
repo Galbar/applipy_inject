@@ -72,6 +72,15 @@ a subtype of the type.
 injector.bind(int, 5)
 ```
 
+**bind((typeA, typeB, ...), instance)**
+
+Bind an instance to multiple types. The instance must be an instance of all the
+types or of a subtype of all the types.
+
+```python
+injector.bind((str, object), 'hello')
+```
+
 **bind(type)**
 
 The type is bound as a "provider" of its own type and dependecy annotations are
@@ -87,6 +96,16 @@ Similar to `bind(type)` but subtype is bound to the specified type.
 
 ```python
 injector.bind(A, B)
+```
+
+**bind((typeA, typeB, ...), subtype)**
+
+Similar to `bind(type, subtype)` but subtype is bound to the specified types.
+
+```python
+injector.bind((A, B), B)
+# or
+injector.bind((A, B), C)
 ```
 
 **bind(provider)**
@@ -111,6 +130,19 @@ def provide_B(v: int, k: str) -> B:
     return B({'v': v, 'k': k})
 
 injector.bind(A, provide_B)
+```
+
+**bind((typeA, typeB, ...), provider)**
+
+Similar to `bind(type, provider)` but the provider is bound to all the
+specified types. The annotated return type of the provider must be a subtype
+of all the specified types.
+
+```python
+def provide_B(v: int, k: str) -> B:
+    return B({'v': v, 'k': k})
+
+injector.bind((A, B), provide_B)
 ```
 
 **Common optional parameters:**
