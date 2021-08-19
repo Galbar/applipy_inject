@@ -12,28 +12,32 @@ check:
   script:
     - pip install flake8
     - flake8
-    - pip install pytest pytest-cov
+    - pip install pytest pytest-cov mypy
+    - mypy --strict applipy_inject/ tests/
     - pytest --cov=applipy_inject --cov-report=term-missing
 
 tests-3.7:
   stage: test-all
   image: python:3.7
   script:
-    - pip install pytest
+    - pip install pytest mypy
+    - mypy --strict applipy_inject/ tests/
     - pytest
 
 tests-3.8:
   stage: test-all
   image: python:3.8
   script:
-    - pip install pytest
+    - pip install pytest mypy
+    - mypy --strict applipy_inject/ tests/
     - pytest
 
 tests-3.9:
   stage: test-all
   image: python:3.9
   script:
-    - pip install pytest
+    - pip install pytest mypy
+    - mypy --strict applipy_inject/ tests/
     - pytest
 
 publish-gitlab:
