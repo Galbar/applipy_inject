@@ -293,8 +293,6 @@ class Injector:
         if 'return' in annotations:
             del annotations['return']
 
-        print('annotations', annotations)
-
         dependencies = []
         for var, typ in annotations.items():
             dep_name = None
