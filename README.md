@@ -183,6 +183,25 @@ injector the name of the instance to get for that type.
 injector.get_all(A, name='foo')
 ```
 
+## Named dependencies
+
+Dependencies can be given names so that different providers can depend on
+different instances of the same type. This can be achieved by annotating the
+dependency type with the dependency name:
+
+```python
+from typing import Annotated
+from applipy_inject import name
+
+
+def provide_A(s: Annotated[str, name('foo')]) -> A:
+    return A(int(s))
+
+
+injector.bind(str, 'some str', name='foo')
+injector.bind(provide_A)
+```
+
 ## Utility functions
 
 ### with_names(provider, names)
@@ -225,5 +244,20 @@ class Z:
 
 @named('foo')
 def provide_int(x: int, b: str) -> int:
+    ...
+```
+
+This is equivalent to using `typing.Annotated` as follows:
+
+```python
+from typing import Annotated
+from applipy_inject import name
+
+class Z:
+    def __init__(self, a: Annotated[dict, name('conf'), b: str):
+        ...
+
+
+def provide_int(x: Annotated[int, name('foo')], b: Annotated[str, name('foo')]) -> int:
     ...
 ```

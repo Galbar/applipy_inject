@@ -1,7 +1,4 @@
-from typing import (
-    Any,
-    Dict,
-)
+from typing import Any
 from applipy_inject import Injector, named
 from .common import Super
 
@@ -60,15 +57,15 @@ def test_named_dict_class() -> None:
 
 def test_named_str_provider() -> None:
     @named('foo')
-    def provider(a: int, b: Dict[str, int]) -> Super:
+    def provider(a: int, b: dict[str, int]) -> Super:
         return Super(a, b)
 
     injector = Injector()
 
     injector.bind(int, 0)
     injector.bind(int, 5, name='foo')
-    injector.bind(Dict[str, int], {'z': 2})
-    injector.bind(Dict[str, int], {'l': 1}, name='foo')
+    injector.bind(dict[str, int], {'z': 2})
+    injector.bind(dict[str, int], {'l': 1}, name='foo')
     injector.bind(provider)
 
     assert injector.get(Super) == Super(5, {'l': 1})
@@ -76,15 +73,15 @@ def test_named_str_provider() -> None:
 
 def test_named_dict_provider() -> None:
     @named({'b': 'bar'})
-    def provider(a: int, b: Dict[str, int]) -> Super:
+    def provider(a: int, b: dict[str, int]) -> Super:
         return Super(a, b)
 
     injector = Injector()
 
     injector.bind(int, 0)
     injector.bind(int, 5, name='bar')
-    injector.bind(Dict[str, int], {'z': 2})
-    injector.bind(Dict[str, int], {'l': 1}, name='bar')
+    injector.bind(dict[str, int], {'z': 2})
+    injector.bind(dict[str, int], {'l': 1}, name='bar')
     injector.bind(provider)
 
     assert injector.get(Super) == Super(0, {'l': 1})

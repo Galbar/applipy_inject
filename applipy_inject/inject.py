@@ -1,7 +1,7 @@
 from typing import (
+    Annotated,
     Any,
     Callable,
-    Dict,
     Generic,
     Iterable,
     List,
@@ -13,6 +13,9 @@ from typing import (
     Union,
     cast,
     overload,
+    get_args,
+    get_origin,
+    get_type_hints
 )
 from collections import defaultdict
 from enum import Enum
@@ -22,29 +25,61 @@ T = TypeVar('T')
 T_Co = TypeVar('T_Co', covariant=True)
 
 
-def with_names(provider: Callable[..., T], names: Union[Dict[str, str], str]) -> Callable[..., T]:
+def _get_class_name(c: type) -> str:
+    module: Optional[str] = getattr(c, '__module__', None)
+    name: Optional[str] = getattr(c, '__qualname__', None)
+    if not name:
+        name = getattr(c, '__name__', None)
+        if not name:
+            name = str(c)
+
+    args = get_args(c)
+    if args:
+        name += '[' + ', '.join(_get_class_name(a) for a in args) + ']'
+    if module and module != 'builtins':
+        return module + '.' + name
+    return name
+
+
+class name(str):
+    ...
+
+
+_Name = name
+
+
+def with_names(provider: Callable[..., T], name: Union[dict[str, str], str]) -> Callable[..., T]:
 
     def wrapper(*args: Any, **kwargs: Any) -> T:
         return provider(*args, **kwargs)
 
-    if not isinstance(names, dict):
-        name = names
-        names = defaultdict(lambda: name)
+    names: dict[str, Optional[str]]
+    if isinstance(name, dict):
+        names = defaultdict(lambda: None)
+        names.update(name)
+    else:
+        names = defaultdict(lambda: cast(Optional[str], name))
 
     if isinstance(provider, type):
         init = getattr(provider, '__init__')
         if init:
-            annotations = getattr(init, '__annotations__', {}).copy()
+            annotations = get_type_hints(init, include_extras=True).copy()
             annotations['return'] = provider
+        else:
+            annotations = get_type_hints(provider, include_extras=True)
     else:
-        annotations = getattr(provider, '__annotations__', {})
+        annotations = get_type_hints(provider, include_extras=True)
 
-    setattr(wrapper, '_named_deps', names)
+    for k, v in annotations.items():
+        n = names[k]
+        if n:
+            annotations[k] = Annotated[v, _Name(n)]
+
     setattr(wrapper, '__annotations__', annotations)
     return wrapper
 
 
-def named(names: Union[Dict[str, str], str]) -> Callable[[Callable[..., T]], Callable[..., T]]:
+def named(names: Union[dict[str, str], str]) -> Callable[[Callable[..., T]], Callable[..., T]]:
     def construct_wrapper(func: Callable[..., T]) -> Callable[..., T]:
         return with_names(func, names)
 
@@ -112,20 +147,20 @@ class Item(Generic[T_Co]):
 
 class Injector:
 
-    providers: Dict[Tuple[Optional[str], type], Set[Item[object]]]
+    providers: dict[Tuple[Optional[str], type], Set[Item[object]]]
 
     def __init__(self) -> None:
         self.providers = defaultdict(set)
 
     def _dependency_is_collection(self, dep_type: type) -> bool:
-        origin = getattr(dep_type, '__origin__', None)
+        origin = get_origin(dep_type)
         return origin is not None and (origin is list or origin is List)
 
     def _dependency_is_optional(self, dep_type: type) -> bool:
-        origin = getattr(dep_type, '__origin__', None)
+        origin = get_origin(dep_type)
         if origin is not Union:
             return False
-        args = getattr(dep_type, '__args__', ())
+        args = get_args(dep_type)
         if len(args) != 2:
             return False
         return type(None) in args
@@ -140,11 +175,43 @@ class Injector:
 
     def _get_dependency_class(self, type_: type) -> type:
         if self._dependency_is_collection(type_):
-            return cast(type, getattr(type_, '__args__')[0])
+            return cast(type, get_args(type_)[0])
         elif self._dependency_is_optional(type_):
-            return next(cast(type, t) for t in getattr(type_, '__args__') if not isinstance(t, type(None)))
+            return next(cast(type, t) for t in get_args(type_) if not isinstance(t, type(None)))
         else:
             return type_
+
+    def _is_provider(self,
+                     provider_or_instance: Union[T, Callable[..., T]],
+                     type_: Union[Type[T], Callable[..., T], Tuple[Type[T], ...], List[Type[T]]]) -> bool:
+        return (
+            (
+                isinstance(type_, (tuple, list))
+                and
+                all(isinstance(t, type) for t in type_)
+                and
+                all(self._is_provider(provider_or_instance, t) for t in type_)
+            )
+            or
+            (
+                isinstance(type_, type)
+                and
+                isinstance(provider_or_instance, type)
+                and
+                issubclass(provider_or_instance, type_)
+            )
+            or
+            (
+                isinstance(type_, type)
+                and
+                callable(provider_or_instance)
+                and
+                issubclass(
+                    cast(type, get_type_hints(provider_or_instance).get('return')),
+                    type_
+                )
+            )
+        )
 
     @overload
     def bind(self, type_: Type[T],
@@ -194,8 +261,8 @@ class Injector:
         if provider_or_instance is None:
             if isinstance(type_, type):
                 self.bind_type(type_, name=name, singleton=singleton)
-            elif callable(type_) and isinstance(type_.__annotations__.get('return'), type):
-                self.bind_provider(type_.__annotations__['return'], type_, name=name, singleton=singleton)
+            elif callable(type_) and isinstance(get_type_hints(type_).get('return'), type):
+                self.bind_provider(get_type_hints(type_)['return'], type_, name=name, singleton=singleton)
             else:
                 raise TypeError('Cannot bind {}. Please be more explicit'.format(type_))
         elif self._is_provider(provider_or_instance, type_):
@@ -207,38 +274,6 @@ class Injector:
             self.bind_instance(cast(Union[Type[T], Tuple[Type[T], ...], List[Type[T]]], type_),
                                cast(T, provider_or_instance),
                                name=name)
-
-    def _is_provider(self,
-                     provider_or_instance: Union[T, Callable[..., T]],
-                     type_: Union[Type[T], Callable[..., T], Tuple[Type[T], ...], List[Type[T]]]) -> bool:
-        return (
-            (
-                isinstance(type_, (tuple, list))
-                and
-                all(isinstance(t, type) for t in type_)
-                and
-                all(self._is_provider(provider_or_instance, t) for t in type_)
-            )
-            or
-            (
-                isinstance(type_, type)
-                and
-                isinstance(provider_or_instance, type)
-                and
-                issubclass(provider_or_instance, type_)
-            )
-            or
-            (
-                isinstance(type_, type)
-                and
-                callable(provider_or_instance)
-                and
-                issubclass(
-                    provider_or_instance.__annotations__['return'],
-                    type_
-                )
-            )
-        )
 
     def bind_provider(self,
                       types: Union[Type[T], Tuple[type, ...], List[type]],
@@ -254,26 +289,27 @@ class Injector:
         if not isinstance(types, (tuple, list)):
             types = (types,)
 
-        if hasattr(func, '__annotations__'):
-            annotations = func.__annotations__.copy()
-            if 'return' in annotations:
-                del annotations['return']
-        else:
-            annotations = {}
+        annotations = get_type_hints(func, include_extras=True).copy()
+        if 'return' in annotations:
+            del annotations['return']
 
-        named_deps_raw = getattr(func, '_named_deps', None)
-        has_names = named_deps_raw is not None
-        if has_names and isinstance(named_deps_raw, defaultdict):
-            named_deps = named_deps_raw
-        else:
-            named_deps = defaultdict(lambda: None)
-            if has_names:
-                named_deps.update(named_deps_raw)
-        dependencies = {Dependency(named_deps[varname],
-                                   self._get_dependency_class(t),
-                                   varname,
-                                   self._get_dependency_type(t))
-                        for varname, t in annotations.items()}
+        print('annotations', annotations)
+
+        dependencies = []
+        for var, typ in annotations.items():
+            dep_name = None
+            if get_origin(typ) == Annotated:
+                args = get_args(typ)
+                typ = args[0]
+                try:
+                    dep_name = next(x for x in reversed(args[1:]) if isinstance(x, _Name))
+                except StopIteration:
+                    ...
+
+            dependencies.append(Dependency(dep_name,
+                                           self._get_dependency_class(typ),
+                                           var,
+                                           self._get_dependency_type(typ)))
 
         item = Item[T](name, Provider(provider, dependencies), singleton)
 
@@ -305,7 +341,7 @@ class Injector:
         requested = _requested or set()
         request_key = (name, type_)
         if request_key in requested:
-            raise Exception(f'There is a dependency cycle for type `{type_.__name__}` with name `{name}`')
+            raise TypeError(f'There is a dependency cycle for type `{_get_class_name(type_)}` with name `{name}`')
         requested.add(request_key)
 
         items = cast(Set[Item[T]], self.providers[name, type_])
@@ -318,7 +354,7 @@ class Injector:
             if item.instance is not None:
                 instance = item.instance
             else:
-                dependencies: Dict[str, Union[List[object], Optional[object], object]] = {}
+                dependencies: dict[str, Union[List[object], Optional[object], object]] = {}
                 for dependency in item.provider.dependencies:
                     if dependency.dep_type == DependencyType.Collection:
                         dependencies[dependency.varname] = self.get_all(dependency.type_,
@@ -335,8 +371,9 @@ class Injector:
                 try:
                     instance = item.instantiate(**dependencies)
                 except TypeError:
-                    raise Exception(
-                        f'Error when calling provider `{item.provider.callable_}` for type `{type_}` with name `{name}`'
+                    raise TypeError(
+                        f'Error when calling provider `{item.provider.callable_}` '
+                        f'for type `{_get_class_name(type_)}` with name `{name}`'
                     )
 
             instances.append(instance)
@@ -363,5 +400,5 @@ class Injector:
             _requested: Optional[Set[Tuple[Optional[str], type]]] = None) -> T:
         instance = self.get_optional(type_, name=name, _requested=_requested)
         if instance is None:
-            raise ValueError(f'Could not get instance of type `{type_.__name__}` with name `{name}`')
+            raise ValueError(f'Could not get instance of type `{_get_class_name(type_)}` with name `{name}`')
         return instance

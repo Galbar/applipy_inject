@@ -1,10 +1,10 @@
 from typing import (
-    Dict,
+    Annotated,
     List,
     Optional,
 )
 
-from applipy_inject import Injector
+from applipy_inject import Injector, name
 
 from .common import Sub, Super
 
@@ -30,7 +30,7 @@ def test_bind_instance_subtype() -> None:
     injector = Injector()
 
     injector.bind(int, 5)
-    injector.bind(Dict[str, int], {'b': 1})
+    injector.bind(dict[str, int], {'b': 1})
     injector.bind(str, 'foo')
     instance = Sub(5, {'b': 1}, 'foo')
     injector.bind(Super, instance)
@@ -69,37 +69,37 @@ def test_bind_provider_named() -> None:
 def test_bind_provider_singleton() -> None:
     injector = Injector()
 
-    def dict_provider() -> Dict[int, int]:
+    def dict_provider() -> dict[int, int]:
         return dict(((1, 2), (3, 4)))
 
     injector.bind(dict_provider, singleton=True)
 
-    assert injector.get(Dict[int, int]) == {1: 2, 3: 4}
-    assert id(injector.get(Dict[int, int])) == id(injector.get(Dict[int, int]))
-    assert injector.get(Dict[int, int]) == injector.get(Dict[int, int])
+    assert injector.get(dict[int, int]) == {1: 2, 3: 4}
+    assert id(injector.get(dict[int, int])) == id(injector.get(dict[int, int]))
+    assert injector.get(dict[int, int]) == injector.get(dict[int, int])
 
 
 def test_bind_provider_not_singleton() -> None:
     injector = Injector()
 
-    def dict_provider() -> Dict[int, int]:
+    def dict_provider() -> dict[int, int]:
         return dict(((1, 2), (3, 4)))
 
     injector.bind(dict_provider, singleton=False)
 
-    assert injector.get(Dict[int, int]) == {1: 2, 3: 4}
-    assert id(injector.get(Dict[int, int])) != id(injector.get(Dict[int, int]))
-    assert injector.get(Dict[int, int]) == injector.get(Dict[int, int])
+    assert injector.get(dict[int, int]) == {1: 2, 3: 4}
+    assert id(injector.get(dict[int, int])) != id(injector.get(dict[int, int]))
+    assert injector.get(dict[int, int]) == injector.get(dict[int, int])
 
 
 def test_bind_provider_subtype() -> None:
     injector = Injector()
 
     injector.bind(int, 5)
-    injector.bind(Dict[str, int], {'b': 1})
+    injector.bind(dict[str, int], {'b': 1})
     injector.bind(str, 'foo')
 
-    def sub_provider(a: int, b: Dict[str, int], c: str) -> Sub:
+    def sub_provider(a: int, b: dict[str, int], c: str) -> Sub:
         return Sub(a, b, c)
 
     injector.bind(Super, sub_provider)
@@ -112,7 +112,7 @@ def test_bind_type_unnamed() -> None:
 
     injector.bind(Super)
     injector.bind(int, 5)
-    injector.bind(Dict[str, int], {'c': 7})
+    injector.bind(dict[str, int], {'c': 7})
 
     assert injector.get(Super) == Super(5, {'c': 7})
 
@@ -123,7 +123,7 @@ def test_bind_type_named() -> None:
     injector.bind(Super, Sub(1, {}, '2'))
     injector.bind(Super, name='z')
     injector.bind(int, 7)
-    injector.bind(Dict[str, int], {'k': 7})
+    injector.bind(dict[str, int], {'k': 7})
 
     assert injector.get(Super, name='z') == Super(7, {'k': 7})
 
@@ -133,7 +133,7 @@ def test_bind_type_singleton() -> None:
 
     injector.bind(Super, singleton=True)
     injector.bind(int, 7)
-    injector.bind(Dict[str, int], {'k': 7})
+    injector.bind(dict[str, int], {'k': 7})
 
     assert id(injector.get(Super)) == id(injector.get(Super))
     assert injector.get(Super) == injector.get(Super)
@@ -144,7 +144,7 @@ def test_bind_type_not_singleton() -> None:
 
     injector.bind(Super, singleton=False)
     injector.bind(int, 7)
-    injector.bind(Dict[str, int], {'k': 7})
+    injector.bind(dict[str, int], {'k': 7})
 
     assert id(injector.get(Super)) != id(injector.get(Super))
     assert injector.get(Super) == injector.get(Super)
@@ -232,7 +232,7 @@ def test_bind_provider_to_multiple_types_tuple() -> None:
 
     injector.bind((Super, Sub), Sub, singleton=True)
     injector.bind(int, 7)
-    injector.bind(Dict[str, int], {'k': 7})
+    injector.bind(dict[str, int], {'k': 7})
     injector.bind(str, 'c')
 
     assert id(injector.get(Super)) == id(injector.get(Super))
@@ -248,7 +248,7 @@ def test_bind_provider_to_multiple_types_list() -> None:
 
     injector.bind([Super, Sub], Sub, singleton=True)
     injector.bind(int, 7)
-    injector.bind(Dict[str, int], {'k': 7})
+    injector.bind(dict[str, int], {'k': 7})
     injector.bind(str, 'c')
 
     assert id(injector.get(Super)) == id(injector.get(Super))
@@ -257,3 +257,17 @@ def test_bind_provider_to_multiple_types_list() -> None:
     assert injector.get(Sub) == injector.get(Sub)
     assert id(injector.get(Super)) == id(injector.get(Sub))
     assert injector.get(Super) == injector.get(Sub)
+
+
+def test_bind_annotated() -> None:
+    injector = Injector()
+
+    def provider(x: Annotated[int, name('denom'), name('num')],
+                 y: Annotated[int, name('num'), name('denom')]) -> float:
+        return x/y
+
+    injector.bind(provider)
+    injector.bind(int, 3, name='num')
+    injector.bind(int, 4, name='denom')
+
+    assert injector.get(float) == 3/4

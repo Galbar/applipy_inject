@@ -1,12 +1,9 @@
-from typing import (
-    Any,
-    Dict,
-)
+from typing import Any
 
 
 class Super:
 
-    def __init__(self, a: int, b: Dict[str, int]) -> None:
+    def __init__(self, a: int, b: dict[str, int]) -> None:
         self.a = a
         self.b = b
 
@@ -22,7 +19,7 @@ class Super:
 
 class Sub(Super):
 
-    def __init__(self, a: int, b: Dict[str, int], c: str) -> None:
+    def __init__(self, a: int, b: dict[str, int], c: str) -> None:
         super().__init__(a, b)
         self.c = c
 

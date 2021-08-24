@@ -8,7 +8,7 @@ variables:
 
 check:
   stage: check
-  image: python:3.6
+  image: python:3.9
   script:
     - pip install flake8
     - flake8
@@ -16,29 +16,13 @@ check:
     - mypy --strict applipy_inject/ tests/
     - pytest --cov=applipy_inject --cov-report=term-missing
 
-tests-3.7:
-  stage: test-all
-  image: python:3.7
-  script:
-    - pip install pytest mypy
-    - mypy --strict applipy_inject/ tests/
-    - pytest
-
-tests-3.8:
-  stage: test-all
-  image: python:3.8
-  script:
-    - pip install pytest mypy
-    - mypy --strict applipy_inject/ tests/
-    - pytest
-
-tests-3.9:
-  stage: test-all
-  image: python:3.9
-  script:
-    - pip install pytest mypy
-    - mypy --strict applipy_inject/ tests/
-    - pytest
+# tests-X.Y:
+#   stage: test-all
+#   image: python:X.Y
+#   script:
+#     - pip install pytest mypy
+#     - mypy --strict applipy_inject/ tests/
+#     - pytest
 
 publish-gitlab:
   stage: publish
