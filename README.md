@@ -194,11 +194,11 @@ from typing import Annotated
 from applipy_inject import name
 
 
-def provide_A(s: Annotated[str, name('foo')]) -> A:
+def provide_A(s: Annotated[str, name('foo_num')]) -> A:
     return A(int(s))
 
 
-injector.bind(str, 'some str', name='foo')
+injector.bind(str, '13', name='foo_num')
 injector.bind(provide_A)
 ```
 
