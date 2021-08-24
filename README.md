@@ -254,7 +254,7 @@ from typing import Annotated
 from applipy_inject import name
 
 class Z:
-    def __init__(self, a: Annotated[dict, name('conf'), b: str):
+    def __init__(self, a: Annotated[dict, name('conf')], b: str):
         ...
 
 
