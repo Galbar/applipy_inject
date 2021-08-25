@@ -37,4 +37,5 @@ setup(
     python_requires='>=3.9',
     install_requires=[],
     scripts=[],
+    package_data={'applipy_inject': ['py.typed']},
 )
