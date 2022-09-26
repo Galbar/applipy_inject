@@ -16,6 +16,14 @@ check:
     - mypy --strict applipy_inject/ tests/
     - pytest --cov=applipy_inject --cov-report=term-missing
 
+tests-3.10:
+  stage: test-all
+  image: python:3.10
+  script:
+    - pip install pytest mypy
+    - mypy --strict applipy_inject/ tests/
+    - pytest
+
 # tests-X.Y:
 #   stage: test-all
 #   image: python:X.Y
