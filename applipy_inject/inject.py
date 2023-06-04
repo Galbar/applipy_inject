@@ -17,6 +17,7 @@ from typing import (
     get_origin,
     get_type_hints
 )
+from types import UnionType
 from collections import defaultdict
 from enum import Enum
 
@@ -41,8 +42,27 @@ def _get_class_name(c: type) -> str:
     return name
 
 
-class name(str):
-    ...
+class name:
+    value: str
+
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, str):
+            return self.value == other
+        if isinstance(other, name):
+            return self.value == other.value
+        return False
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+    def __repr__(self) -> str:
+        return self.value
+
+    def __str__(self) -> str:
+        return self.value
 
 
 _Name = name
@@ -86,7 +106,7 @@ def named(names: Union[dict[str, str], str]) -> Callable[[Callable[..., T]], Cal
     return construct_wrapper
 
 
-class DependencyType(str, Enum):
+class DependencyType(Enum):
     Required = 'required'
     Optional = 'optional'
     Collection = 'collection'
@@ -158,7 +178,7 @@ class Injector:
 
     def _dependency_is_optional(self, dep_type: type) -> bool:
         origin = get_origin(dep_type)
-        if origin is not Union:
+        if not (origin is Union or origin is UnionType):
             return False
         args = get_args(dep_type)
         if len(args) != 2:
@@ -300,7 +320,7 @@ class Injector:
                 args = get_args(typ)
                 typ = args[0]
                 try:
-                    dep_name = next(x for x in reversed(args[1:]) if isinstance(x, _Name))
+                    dep_name = next(x.value for x in reversed(args[1:]) if isinstance(x, _Name))
                 except StopIteration:
                     ...
 
@@ -359,9 +379,10 @@ class Injector:
                                                                         name=dependency.name,
                                                                         _requested=requested)
                     elif dependency.dep_type == DependencyType.Optional:
-                        dependencies[dependency.varname] = self.get_optional(dependency.type_,
-                                                                             name=dependency.name,
-                                                                             _requested=requested)
+                        dep: Any = self.get_optional(dependency.type_,
+                                                     name=dependency.name,
+                                                     _requested=requested)
+                        dependencies[dependency.varname] = dep
                     else:
                         dependencies[dependency.varname] = self.get(dependency.type_,
                                                                     name=dependency.name,

@@ -207,6 +207,30 @@ def test_optional_dependency_absent() -> None:
     assert injector.get(str) == 'None'
 
 
+def test_optional_union_type_dependency_present() -> None:
+    injector = Injector()
+
+    injector.bind(int, 1)
+
+    def mysum(maybe_int: int | None) -> str:
+        return str(maybe_int)
+
+    injector.bind(mysum)
+
+    assert injector.get(str) == '1'
+
+
+def test_optional_union_type_dependency_absent() -> None:
+    injector = Injector()
+
+    def mysum(maybe_int: int | None) -> str:
+        return str(maybe_int)
+
+    injector.bind(mysum)
+
+    assert injector.get(str) == 'None'
+
+
 def test_bind_instance_to_multiple_types_tuple() -> None:
     injector = Injector()
 

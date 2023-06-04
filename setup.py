@@ -34,7 +34,7 @@ setup(
     version=version,
     packages=find_packages(exclude=['doc', 'tests']),
     data_files=[],
-    python_requires='>=3.9',
+    python_requires='>=3.10',
     install_requires=[],
     scripts=[],
     package_data={'applipy_inject': ['py.typed']},
