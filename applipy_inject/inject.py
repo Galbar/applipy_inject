@@ -17,7 +17,7 @@ from typing import (
     get_origin,
     get_type_hints
 )
-from types import UnionType
+from types import UnionType, GenericAlias
 from collections import defaultdict
 from enum import Enum
 
@@ -26,7 +26,7 @@ T = TypeVar('T')
 T_Co = TypeVar('T_Co', covariant=True)
 
 
-def _get_class_name(c: type) -> str:
+def _get_class_name(c: Any) -> str:
     module: Optional[str] = getattr(c, '__module__', None)
     name: Optional[str] = getattr(c, '__qualname__', None)
     if not name:
@@ -40,6 +40,10 @@ def _get_class_name(c: type) -> str:
     if module and module != 'builtins':
         return module + '.' + name
     return name
+
+
+def _is_type(t: Any) -> bool:
+    return isinstance(t, type) or isinstance(t, GenericAlias)
 
 
 class name:
@@ -80,7 +84,7 @@ def with_names(provider: Callable[..., T], name: Union[dict[str, str], str]) -> 
     else:
         names = defaultdict(lambda: cast(Optional[str], name))
 
-    if isinstance(provider, type):
+    if _is_type(provider):
         init = getattr(provider, '__init__')
         if init:
             annotations = get_type_hints(init, include_extras=True).copy()
@@ -208,7 +212,7 @@ class Injector:
             (
                 isinstance(type_, (tuple, list))
                 and
-                all(isinstance(t, type) for t in type_)
+                all(_is_type(t) for t in type_)
                 and
                 all(self._is_provider(provider_or_instance, t) for t in type_)
             )
@@ -235,53 +239,53 @@ class Injector:
 
     @overload
     def bind(self, type_: Type[T],
-             provider_or_instance: None = None, name: Optional[str] = None, singleton: bool = False) -> None:
+             provider_or_instance: None = None, /, *, name: Optional[str] = None, singleton: bool = False) -> None:
         ...
 
     @overload
     def bind(self, type_: Callable[..., T],
-             provider_or_instance: None = None, name: Optional[str] = None, singleton: bool = False) -> None:
+             provider_or_instance: None = None, /, *, name: Optional[str] = None, singleton: bool = False) -> None:
         ...
 
     @overload
-    def bind(self, type_: Type[T], provider_or_instance: Callable[..., T],
+    def bind(self, type_: Type[T], provider_or_instance: Callable[..., T], /, *,
              name: Optional[str] = None, singleton: bool = False) -> None:
         ...
 
     @overload
-    def bind(self, type_: Tuple[type, ...], provider_or_instance: Callable[..., object],
+    def bind(self, type_: Tuple[type, ...], provider_or_instance: Callable[..., object], /, *,
              name: Optional[str] = None, singleton: bool = False) -> None:
         ...
 
     @overload
-    def bind(self, type_: List[type], provider_or_instance: Callable[..., object],
+    def bind(self, type_: List[type], provider_or_instance: Callable[..., object], /, *,
              name: Optional[str] = None, singleton: bool = False) -> None:
         ...
 
     @overload
-    def bind(self, type_: Type[T], provider_or_instance: T,
+    def bind(self, type_: Type[T], provider_or_instance: T, /, *,
              name: Optional[str] = None, singleton: bool = False) -> None:
         ...
 
     @overload
-    def bind(self, type_: Tuple[type, ...], provider_or_instance: object,
+    def bind(self, type_: Tuple[type, ...], provider_or_instance: object, /, *,
              name: Optional[str] = None, singleton: bool = False) -> None:
         ...
 
     @overload
-    def bind(self, type_: List[type], provider_or_instance: object,
+    def bind(self, type_: List[type], provider_or_instance: object, /, *,
              name: Optional[str] = None, singleton: bool = False) -> None:
         ...
 
     def bind(self,
              type_: Union[Type[T], Tuple[type, ...], List[type], Callable[..., T]],
-             provider_or_instance: Optional[Union[T, Callable[..., object], object]] = None,
+             provider_or_instance: Optional[Union[T, Callable[..., object], object]] = None, /, *,
              name: Optional[str] = None,
              singleton: bool = True) -> None:
         if provider_or_instance is None:
-            if isinstance(type_, type):
-                self.bind_type(type_, name=name, singleton=singleton)
-            elif callable(type_) and isinstance(get_type_hints(type_).get('return'), type):
+            if _is_type(type_):
+                self.bind_type(cast(type, type_), name=name, singleton=singleton)
+            elif callable(type_) and _is_type(get_type_hints(type_).get('return')):
                 self.bind_provider(get_type_hints(type_)['return'], type_, name=name, singleton=singleton)
             else:
                 raise TypeError('Cannot bind {}. Please be more explicit'.format(type_))
@@ -298,10 +302,11 @@ class Injector:
     def bind_provider(self,
                       types: Union[Type[T], Tuple[type, ...], List[type]],
                       provider: Callable[..., T],
+                      /, *,
                       name: Optional[str] = None,
                       singleton: bool = True) -> None:
         func: Callable[..., T]
-        if isinstance(provider, type):
+        if _is_type(provider):
             func = cast(Callable[..., T], getattr(provider, '__init__'))
         else:
             func = provider
@@ -336,6 +341,7 @@ class Injector:
 
     def bind_type(self,
                   type_: type,
+                  /, *,
                   name: Optional[str] = None,
                   singleton: bool = True) -> None:
         self.bind_provider(type_, type_, name=name, singleton=singleton)
@@ -343,6 +349,7 @@ class Injector:
     def bind_instance(self,
                       types: Union[Type[T], Tuple[Type[T], ...], List[Type[T]]],
                       instance: T,
+                      /, *,
                       name: Optional[str] = None) -> None:
         item = Item[T](name, Provider(lambda: instance, ()), True, instance=instance)
 
